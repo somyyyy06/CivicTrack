@@ -1,22 +1,22 @@
 
-import React, { useState, useCallback } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { IssueCategory } from '@/contexts/IssueContext';
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { IssueCategory, IssueStatus } from '@/contexts/IssueContext';
 import { useIssues } from '@/contexts/IssueContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Switch } from "@/components/ui/switch"
-import { cn } from "@/lib/utils"
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 // Fix the mapboxgl import issue
 import mapboxgl from 'mapbox-gl';
@@ -166,8 +166,10 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
         ...values,
         reporterId: user.id,
         reporterName: user.name || 'Anonymous',
+        status: 'open' as IssueStatus, // Adding the required status field
         location: {
-          ...values.location,
+          latitude: values.location.latitude,
+          longitude: values.location.longitude,
           address: values.location.address || 'No address provided',
         },
       };

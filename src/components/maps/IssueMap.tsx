@@ -14,6 +14,9 @@ import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 // For demo purposes, using a temporary token that would need to be replaced
 mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
 
+// Ayodhya coordinates
+const AYODHYA_COORDINATES = [82.1998, 26.7922];
+
 interface IssueMapProps {
   onIssueSelect?: (issueId: string) => void;
   height?: string;
@@ -53,8 +56,8 @@ const IssueMap: React.FC<IssueMapProps> = ({
         container: mapContainer.current,
         // Using a more Google Maps-like style
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-74.0060, 40.7128], // New York City coordinates
-        zoom: 12,
+        center: AYODHYA_COORDINATES, // Ayodhya coordinates
+        zoom: 13.5, // Closer zoom for city level
         attributionControl: false, // Hide default attribution for cleaner look
         pitchWithRotate: false, // Disable pitch with rotate for Google Maps feel
         dragRotate: false, // Disable rotation for Google Maps feel
@@ -84,6 +87,23 @@ const IssueMap: React.FC<IssueMapProps> = ({
           attribution.className = 'absolute bottom-0 right-0 bg-white px-2 py-1 text-xs text-gray-600 z-10';
           attribution.textContent = '© Mapbox © OpenStreetMap';
           mapContainer.current?.appendChild(attribution);
+          
+          // Add marker for Ayodhya city center
+          new mapboxgl.Marker({ color: "#FF0000" })
+            .setLngLat(AYODHYA_COORDINATES)
+            .setPopup(
+              new mapboxgl.Popup({ 
+                offset: 25,
+                closeButton: false,
+              })
+                .setHTML(`
+                  <div class="p-2">
+                    <h3 class="font-sans text-sm font-medium text-gray-900">Ayodhya</h3>
+                    <p class="text-xs text-gray-600 mt-1">City Center</p>
+                  </div>
+                `)
+            )
+            .addTo(map.current);
         }
       });
     }
@@ -101,8 +121,8 @@ const IssueMap: React.FC<IssueMapProps> = ({
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // Clear existing markers
-    const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
+    // Clear existing markers (except the Ayodhya center marker)
+    const existingMarkers = document.querySelectorAll('.mapboxgl-marker:not(:first-child)');
     existingMarkers.forEach(marker => marker.remove());
 
     // Add filtered markers

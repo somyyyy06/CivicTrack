@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,9 +19,12 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
 // Fix the mapboxgl import issue
-import * as mapboxgl from 'mapbox-gl';
+import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef } from 'react';
+
+// Set the mapbox token directly
+mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
 
 const formSchema = z.object({
   title: z.string().min(3, {
@@ -29,7 +33,7 @@ const formSchema = z.object({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  category: z.enum(['pothole', 'damaged_sign', 'street_light_outage', 'graffiti', 'other']),
+  category: z.enum(['road_damage', 'sanitation', 'lighting', 'graffiti', 'sidewalk', 'vegetation', 'other']),
   location: z.object({
     latitude: z.number(),
     longitude: z.number(),
@@ -42,14 +46,15 @@ const formSchema = z.object({
 interface IssueFormProps {
   issueId?: string;
   defaultValues?: z.infer<typeof formSchema>;
-  onSubmit: (values: z.infer<typeof formSchema>) => void;
+  onSubmit?: (values: z.infer<typeof formSchema>) => void;
+  onSubmitSuccess?: () => void;
 }
 
-const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit }) => {
+const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit, onSubmitSuccess }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { createIssue, updateIssue, getIssue } = useIssues();
+  const { addIssue, updateIssue, getIssue } = useIssues();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number; address?: string } | null>(null);
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -61,7 +66,7 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit 
     defaultValues: defaultValues || {
       title: '',
       description: '',
-      category: 'pothole',
+      category: 'road_damage',
       location: {
         latitude: 0,
         longitude: 0,
@@ -70,9 +75,6 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit 
     },
     mode: "onChange",
   });
-
-  // When using mapboxgl, ensure it's properly imported:
-  mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
 
   useEffect(() => {
     if (!map.current && mapContainer.current) {
@@ -179,14 +181,22 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit 
         });
       } else {
         // Create new issue
-        await createIssue(issueData);
+        await addIssue(issueData);
         toast({
           title: "Issue Reported",
           description: "Your issue has been reported successfully.",
         });
       }
 
-      navigate('/');
+      if (onSubmit) {
+        onSubmit(values);
+      }
+
+      if (onSubmitSuccess) {
+        onSubmitSuccess();
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       console.error("Error submitting issue:", error);
       toast({
@@ -250,10 +260,12 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="pothole">Pothole</SelectItem>
-                      <SelectItem value="damaged_sign">Damaged Sign</SelectItem>
-                      <SelectItem value="street_light_outage">Street Light Outage</SelectItem>
+                      <SelectItem value="road_damage">Road Damage</SelectItem>
+                      <SelectItem value="sanitation">Sanitation</SelectItem>
+                      <SelectItem value="lighting">Lighting</SelectItem>
                       <SelectItem value="graffiti">Graffiti</SelectItem>
+                      <SelectItem value="sidewalk">Sidewalk</SelectItem>
+                      <SelectItem value="vegetation">Vegetation</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>

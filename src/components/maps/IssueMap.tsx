@@ -229,7 +229,8 @@ const IssueMap: React.FC<IssueMapProps> = ({
       </div>
 
       {/* Add Google-style CSS */}
-      <style jsx>{`
+      <style>
+        {`
         .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right {
           bottom: 16px;
         }
@@ -246,7 +247,8 @@ const IssueMap: React.FC<IssueMapProps> = ({
           padding: 0;
           box-shadow: 0 2px 7px 1px rgba(0,0,0,0.3);
         }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 };

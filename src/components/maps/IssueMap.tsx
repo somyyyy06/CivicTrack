@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -14,8 +13,8 @@ import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 // For demo purposes, using a temporary token that would need to be replaced
 mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
 
-// Ayodhya coordinates
-const AYODHYA_COORDINATES = [82.1998, 26.7922];
+// Ayodhya coordinates - explicitly typed as [number, number] for LngLatLike
+const AYODHYA_COORDINATES: [number, number] = [82.1998, 26.7922];
 
 interface IssueMapProps {
   onIssueSelect?: (issueId: string) => void;
@@ -56,7 +55,7 @@ const IssueMap: React.FC<IssueMapProps> = ({
         container: mapContainer.current,
         // Using a more Google Maps-like style
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: AYODHYA_COORDINATES, // Ayodhya coordinates
+        center: AYODHYA_COORDINATES, // Now properly typed as [number, number]
         zoom: 13.5, // Closer zoom for city level
         attributionControl: false, // Hide default attribution for cleaner look
         pitchWithRotate: false, // Disable pitch with rotate for Google Maps feel
@@ -88,7 +87,7 @@ const IssueMap: React.FC<IssueMapProps> = ({
           attribution.textContent = '© Mapbox © OpenStreetMap';
           mapContainer.current?.appendChild(attribution);
           
-          // Add marker for Ayodhya city center
+          // Add marker for Ayodhya city center - now properly typed
           new mapboxgl.Marker({ color: "#FF0000" })
             .setLngLat(AYODHYA_COORDINATES)
             .setPopup(

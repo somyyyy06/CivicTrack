@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -162,16 +161,20 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
         throw new Error('User must be logged in to submit an issue.');
       }
 
+      // Ensure all required fields are present for addIssue
       const issueData = {
-        ...values,
+        title: values.title,
+        description: values.description,
+        category: values.category, // This is now non-optional as required by the form schema
         reporterId: user.id,
         reporterName: user.name || 'Anonymous',
-        status: 'open' as IssueStatus, // Adding the required status field
+        status: 'open' as IssueStatus,
         location: {
           latitude: values.location.latitude,
           longitude: values.location.longitude,
           address: values.location.address || 'No address provided',
         },
+        photos: values.photos || [], // Ensure photos is always an array
       };
 
       if (issueId) {

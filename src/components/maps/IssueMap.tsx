@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -9,9 +10,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import IssueFilterControl from './IssueFilterControl';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 
-// Mapbox requires a token
-// For demo purposes, using a temporary token that would need to be replaced
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
+// Mapbox requires a token - we'll use a public token for demonstration
+// This is a placeholder token - for production, users would need their own
+mapboxgl.accessToken = 'pk.eyJ1IjoiZGl2eWFuc2g0IiwiYSI6ImNscHY3OGI5MDAxYm4ya3MyeGsxOHNwYmQifQ.JT-wu0fKnBdwtfbO0xt-PA';
 
 // Ayodhya coordinates - explicitly typed as [number, number] for LngLatLike
 const AYODHYA_COORDINATES: [number, number] = [82.1998, 26.7922];
@@ -36,6 +37,7 @@ const IssueMap: React.FC<IssueMapProps> = ({
     status?: IssueStatus;
   }>({});
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Filter issues based on the selected filters
   const filteredIssues = issues.filter((issue) => {
@@ -51,60 +53,71 @@ const IssueMap: React.FC<IssueMapProps> = ({
   // Initialize map when component mounts
   useEffect(() => {
     if (!map.current && mapContainer.current) {
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        // Using a more Google Maps-like style
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: AYODHYA_COORDINATES, // Now properly typed as [number, number]
-        zoom: 13.5, // Closer zoom for city level
-        attributionControl: false, // Hide default attribution for cleaner look
-        pitchWithRotate: false, // Disable pitch with rotate for Google Maps feel
-        dragRotate: false, // Disable rotation for Google Maps feel
-      });
+      try {
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: AYODHYA_COORDINATES,
+          zoom: 13.5,
+          attributionControl: false,
+          pitchWithRotate: false,
+          dragRotate: false,
+        });
 
-      // Add navigation controls (zoom only for Google Maps-like feel)
-      const navControl = new mapboxgl.NavigationControl({ showCompass: false });
-      map.current.addControl(navControl, 'bottom-right');
+        // Add navigation controls (zoom only for Google Maps-like feel)
+        const navControl = new mapboxgl.NavigationControl({ showCompass: false });
+        map.current.addControl(navControl, 'bottom-right');
 
-      // Add geolocate control
-      const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: {
-          enableHighAccuracy: true,
-        },
-        trackUserLocation: true,
-        showUserHeading: true,
-      });
-      map.current.addControl(geolocate, 'bottom-right');
+        // Add geolocate control
+        const geolocate = new mapboxgl.GeolocateControl({
+          positionOptions: {
+            enableHighAccuracy: true,
+          },
+          trackUserLocation: true,
+          showUserHeading: true,
+        });
+        map.current.addControl(geolocate, 'bottom-right');
 
-      map.current.on('load', () => {
-        setMapLoaded(true);
-        
-        // Add custom Google Maps-like styling
-        if (map.current) {
-          // Add attribution in Google Maps style
-          const attribution = document.createElement('div');
-          attribution.className = 'absolute bottom-0 right-0 bg-white px-2 py-1 text-xs text-gray-600 z-10';
-          attribution.textContent = '© Mapbox © OpenStreetMap';
-          mapContainer.current?.appendChild(attribution);
+        map.current.on('load', () => {
+          setMapLoaded(true);
           
-          // Add marker for Ayodhya city center - now properly typed
-          new mapboxgl.Marker({ color: "#FF0000" })
-            .setLngLat(AYODHYA_COORDINATES)
-            .setPopup(
-              new mapboxgl.Popup({ 
-                offset: 25,
-                closeButton: false,
-              })
-                .setHTML(`
-                  <div class="p-2">
-                    <h3 class="font-sans text-sm font-medium text-gray-900">Ayodhya</h3>
-                    <p class="text-xs text-gray-600 mt-1">City Center</p>
-                  </div>
-                `)
-            )
-            .addTo(map.current);
-        }
-      });
+          // Add custom Google Maps-like styling
+          if (map.current) {
+            // Add attribution in Google Maps style
+            const attribution = document.createElement('div');
+            attribution.className = 'absolute bottom-0 right-0 bg-white px-2 py-1 text-xs text-gray-600 z-10';
+            attribution.textContent = '© Mapbox © OpenStreetMap';
+            mapContainer.current?.appendChild(attribution);
+            
+            // Add marker for Ayodhya city center
+            new mapboxgl.Marker({ color: "#FF0000" })
+              .setLngLat(AYODHYA_COORDINATES)
+              .setPopup(
+                new mapboxgl.Popup({ 
+                  offset: 25,
+                  closeButton: false,
+                })
+                  .setHTML(`
+                    <div class="p-2">
+                      <h3 class="font-sans text-sm font-medium text-gray-900">Ayodhya</h3>
+                      <p class="text-xs text-gray-600 mt-1">City Center</p>
+                    </div>
+                  `)
+              )
+              .addTo(map.current);
+          }
+        });
+
+        // Handle map errors
+        map.current.on('error', (e) => {
+          console.error('Mapbox error:', e.error);
+          setMapError('Failed to load map. Please check your connection or try again later.');
+        });
+
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapError('Failed to initialize map. Please check your connection or try again later.');
+      }
     }
 
     // Clean up on unmount
@@ -194,6 +207,15 @@ const IssueMap: React.FC<IssueMapProps> = ({
     <div className={`relative ${height} w-full`}>
       <div ref={mapContainer} className="h-full w-full" />
       
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
+          <div className="bg-white p-4 rounded shadow-lg text-center">
+            <p className="text-red-500 mb-2">{mapError}</p>
+            <p className="text-sm text-gray-600">Please check your internet connection or try again later.</p>
+          </div>
+        </div>
+      )}
+      
       {/* Google Maps-like controls */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
         {enableFilters && (
@@ -247,7 +269,7 @@ const IssueMap: React.FC<IssueMapProps> = ({
         </div>
       </div>
 
-      {/* Add Google-style CSS */}
+      {/* Google-style CSS */}
       <style>
         {`
         .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right {

@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useIssues, IssueCategory, IssueStatus } from '@/contexts/IssueContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Plus, Filter } from 'lucide-react';
+import { Plus, Filter, Layers } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import IssueFilterControl from './IssueFilterControl';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
@@ -51,28 +51,40 @@ const IssueMap: React.FC<IssueMapProps> = ({
     if (!map.current && mapContainer.current) {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v11',
+        // Using a more Google Maps-like style
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: [-74.0060, 40.7128], // New York City coordinates
         zoom: 12,
+        attributionControl: false, // Hide default attribution for cleaner look
+        pitchWithRotate: false, // Disable pitch with rotate for Google Maps feel
+        dragRotate: false, // Disable rotation for Google Maps feel
       });
 
-      // Add navigation controls (zoom and rotation)
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      // Add navigation controls (zoom only for Google Maps-like feel)
+      const navControl = new mapboxgl.NavigationControl({ showCompass: false });
+      map.current.addControl(navControl, 'bottom-right');
 
       // Add geolocate control
-      map.current.addControl(
-        new mapboxgl.GeolocateControl({
-          positionOptions: {
-            enableHighAccuracy: true,
-          },
-          trackUserLocation: true,
-          showUserHeading: true,
-        }),
-        'top-right'
-      );
+      const geolocate = new mapboxgl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true,
+        },
+        trackUserLocation: true,
+        showUserHeading: true,
+      });
+      map.current.addControl(geolocate, 'bottom-right');
 
       map.current.on('load', () => {
         setMapLoaded(true);
+        
+        // Add custom Google Maps-like styling
+        if (map.current) {
+          // Add attribution in Google Maps style
+          const attribution = document.createElement('div');
+          attribution.className = 'absolute bottom-0 right-0 bg-white px-2 py-1 text-xs text-gray-600 z-10';
+          attribution.textContent = '© Mapbox © OpenStreetMap';
+          mapContainer.current?.appendChild(attribution);
+        }
       });
     }
 
@@ -99,43 +111,47 @@ const IssueMap: React.FC<IssueMapProps> = ({
       const markerEl = document.createElement('div');
       markerEl.className = 'relative';
 
-      // Create marker pin with status color
+      // Create Google Maps-like marker pin
       const pin = document.createElement('div');
-      pin.className = 'w-6 h-6 rounded-full flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2';
+      pin.className = 'w-6 h-6 rounded-full flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 shadow-md';
       
-      // Set color based on issue status
+      // Set color based on issue status with Google Maps-like colors
       switch (issue.status) {
         case 'open':
-          pin.classList.add('bg-civic-red');
+          pin.classList.add('bg-red-500'); // Google Maps red
           break;
         case 'in_progress':
-          pin.classList.add('bg-civic-yellow');
+          pin.classList.add('bg-amber-500'); // Google Maps yellow
           break;
         case 'resolved':
-          pin.classList.add('bg-civic-green');
+          pin.classList.add('bg-green-600'); // Google Maps green
           break;
         default:
-          pin.classList.add('bg-civic-blue');
+          pin.classList.add('bg-blue-500'); // Google Maps blue
       }
 
-      // Add inner dot
+      // Add inner dot with pulsing effect for Google Maps feel
       const dot = document.createElement('div');
       dot.className = 'w-3 h-3 bg-white rounded-full';
       pin.appendChild(dot);
       
       markerEl.appendChild(pin);
 
-      // Create and add the marker
+      // Create and add the marker with Google Maps-like popup
       const marker = new mapboxgl.Marker(markerEl)
         .setLngLat([issue.location.longitude, issue.location.latitude])
         .setPopup(
-          new mapboxgl.Popup({ offset: 25 })
+          new mapboxgl.Popup({ 
+            offset: 25,
+            closeButton: false, // Google Maps popups don't have close buttons
+            className: 'google-maps-popup' // For custom styling
+          })
             .setHTML(`
-              <div>
-                <h3 class="font-semibold">${issue.title}</h3>
-                <p class="text-sm text-gray-600">${issue.category.replace('_', ' ')}</p>
-                <div class="mt-2">
-                  <a href="/issue/${issue.id}" class="text-primary text-sm font-medium">View details</a>
+              <div class="p-2">
+                <h3 class="font-sans text-sm font-medium text-gray-900">${issue.title}</h3>
+                <p class="text-xs text-gray-600 mt-1">${issue.category.replace('_', ' ')}</p>
+                <div class="mt-2 text-right">
+                  <a href="/issue/${issue.id}" class="text-sm font-medium text-blue-600">View details</a>
                 </div>
               </div>
             `)
@@ -159,12 +175,12 @@ const IssueMap: React.FC<IssueMapProps> = ({
     <div className={`relative ${height} w-full`}>
       <div ref={mapContainer} className="h-full w-full" />
       
-      {/* Fixed buttons */}
+      {/* Google Maps-like controls */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
         {enableFilters && (
           <Drawer>
             <DrawerTrigger asChild>
-              <Button variant="outline" className="bg-white dark:bg-gray-800">
+              <Button variant="outline" className="bg-white shadow-md border-0 hover:bg-gray-100">
                 <Filter className="h-4 w-4 mr-2" />
                 Filter Issues
               </Button>
@@ -180,32 +196,57 @@ const IssueMap: React.FC<IssueMapProps> = ({
         
         {user && (
           <Link to="/report">
-            <Button className="w-full">
+            <Button className="bg-white text-gray-700 hover:bg-gray-100 shadow-md border-0">
               <Plus className="h-4 w-4 mr-2" />
               Report Issue
             </Button>
           </Link>
         )}
+
+        {/* Google Maps-like layer selector */}
+        <Button variant="outline" className="bg-white shadow-md border-0 hover:bg-gray-100 mt-4">
+          <Layers className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Status indicator */}
-      <div className="absolute bottom-8 right-8 z-10 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md">
-        <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Status:</div>
+      {/* Status indicator - Google Maps style */}
+      <div className="absolute bottom-8 left-4 z-10 bg-white rounded-md shadow-md p-3">
+        <div className="text-xs font-medium text-gray-500 mb-2">Issue Status:</div>
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-civic-red"></div>
-            <span className="text-xs">Open</span>
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <span className="text-xs text-gray-700">Open</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-civic-yellow"></div>
-            <span className="text-xs">In Progress</span>
+            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+            <span className="text-xs text-gray-700">In Progress</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-civic-green"></div>
-            <span className="text-xs">Resolved</span>
+            <div className="w-3 h-3 rounded-full bg-green-600"></div>
+            <span className="text-xs text-gray-700">Resolved</span>
           </div>
         </div>
       </div>
+
+      {/* Add Google-style CSS */}
+      <style jsx>{`
+        .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right {
+          bottom: 16px;
+        }
+        .mapboxgl-ctrl-group {
+          border-radius: 8px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .mapboxgl-ctrl-group button {
+          width: 32px;
+          height: 32px;
+        }
+        .google-maps-popup .mapboxgl-popup-content {
+          border-radius: 8px;
+          padding: 0;
+          box-shadow: 0 2px 7px 1px rgba(0,0,0,0.3);
+        }
+      `}</style>
     </div>
   );
 };

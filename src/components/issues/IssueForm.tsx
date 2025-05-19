@@ -1,343 +1,354 @@
+import React, { useState, useCallback } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useToast } from "@/components/ui/use-toast"
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { IssueCategory } from '@/contexts/IssueContext';
+import { useIssues } from '@/contexts/IssueContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Switch } from "@/components/ui/switch"
+import { cn } from "@/lib/utils"
 
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { useIssues, IssueCategory } from "@/contexts/IssueContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
-import { Camera, MapPin } from "lucide-react";
-import { Card } from "@/components/ui/card";
+// Fix the mapboxgl import issue
+import * as mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { useEffect, useRef } from 'react';
+
+const formSchema = z.object({
+  title: z.string().min(3, {
+    message: "Title must be at least 3 characters.",
+  }),
+  description: z.string().min(10, {
+    message: "Description must be at least 10 characters.",
+  }),
+  category: z.enum(['pothole', 'damaged_sign', 'street_light_outage', 'graffiti', 'other']),
+  location: z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+    address: z.string().optional(),
+  }),
+  photos: z.array(z.string()).optional(),
+  isPublic: z.boolean().default(true),
+});
 
 interface IssueFormProps {
-  onSubmitSuccess?: () => void;
+  issueId?: string;
+  defaultValues?: z.infer<typeof formSchema>;
+  onSubmit: (values: z.infer<typeof formSchema>) => void;
 }
 
-const IssueForm: React.FC<IssueFormProps> = ({ onSubmitSuccess }) => {
-  const { user } = useAuth();
-  const { addIssue } = useIssues();
-  const navigate = useNavigate();
+const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit }) => {
   const { toast } = useToast();
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<IssueCategory>("road_damage");
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [location, setLocation] = useState<{
-    latitude: number;
-    longitude: number;
-    address?: string;
-  } | null>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { createIssue, updateIssue, getIssue } = useIssues();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number; address?: string } | null>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Redirect if not logged in
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: defaultValues || {
+      title: '',
+      description: '',
+      category: 'pothole',
+      location: {
+        latitude: 0,
+        longitude: 0,
+      },
+      isPublic: true,
+    },
+    mode: "onChange",
+  });
+
+  // When using mapboxgl, ensure it's properly imported:
+  mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
+
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to report an issue.",
-        variant: "destructive",
+    if (!map.current && mapContainer.current) {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [-74.0060, 40.7128], // New York City coordinates
+        zoom: 12,
       });
-      navigate("/login", { replace: true });
-    }
-  }, [user, navigate, toast]);
 
-  // Get user's current location
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast({
-        title: "Error",
-        description: "Geolocation is not supported by your browser",
-        variant: "destructive",
+      // Add navigation controls (zoom and rotation)
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      // Add geolocate control
+      map.current.addControl(
+        new mapboxgl.GeolocateControl({
+          positionOptions: {
+            enableHighAccuracy: true,
+          },
+          trackUserLocation: true,
+          showUserHeading: true,
+        }),
+        'top-right'
+      );
+
+      map.current.on('load', () => {
+        setMapLoaded(true);
       });
-      return;
+
+      map.current.on('click', (e) => {
+        const newLocation = {
+          longitude: e.lngLat.lng,
+          latitude: e.lngLat.lat,
+        };
+        setLocation(newLocation);
+        form.setValue('location.latitude', newLocation.latitude);
+        form.setValue('location.longitude', newLocation.longitude);
+
+        // Clear existing markers
+        const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
+        existingMarkers.forEach(marker => marker.remove());
+
+        // Add a marker to the map at the clicked location
+        new mapboxgl.Marker()
+          .setLngLat([newLocation.longitude, newLocation.latitude])
+          .addTo(map.current!);
+      });
     }
 
-    setIsGettingLocation(true);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        
-        // Try to get address using reverse geocoding
-        try {
-          const response = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
-          );
-          const data = await response.json();
-          const address = data.features[0]?.place_name || "Unknown location";
-          
-          setLocation({
-            latitude,
-            longitude,
-            address,
-          });
-        } catch (error) {
-          // If geocoding fails, just use coordinates
-          setLocation({
-            latitude,
-            longitude,
-          });
-        }
-        
-        setIsGettingLocation(false);
-      },
-      (error) => {
-        toast({
-          title: "Location error",
-          description: error.message,
-          variant: "destructive",
-        });
-        setIsGettingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+    // Clean up on unmount
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
       }
-    );
-  };
+    };
+  }, []);
 
-  // Handle file input change
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
+  useEffect(() => {
+    if (defaultValues && map.current && mapLoaded) {
+      const { latitude, longitude } = defaultValues.location;
+      setLocation({ latitude, longitude });
 
-    const newFiles = Array.from(e.target.files);
-    
-    // Create object URLs for preview
-    const newPhotoUrls = newFiles.map(file => URL.createObjectURL(file));
-    
-    // In a real app, we would upload the images to a server
-    // For this demo, we'll just store the URLs
-    setPhotoUrls(prevUrls => [...prevUrls, ...newPhotoUrls]);
-    
-    // For demo purposes, using placeholders
-    const placeholders = [
-      "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800", // pothole
-      "https://images.unsplash.com/photo-1605600659453-128bfdb0912a?w=800", // trash
-      "https://images.unsplash.com/photo-1589463349208-93b2dd8af50a?w=800"  // broken light
-    ];
-    
-    setPhotos(prevPhotos => [
-      ...prevPhotos,
-      ...newFiles.map((_, i) => placeholders[i % placeholders.length])
-    ]);
-  };
+      // Clear existing markers
+      const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
+      existingMarkers.forEach(marker => marker.remove());
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to report an issue.",
-        variant: "destructive",
+      // Fly to the location and add a marker
+      map.current.flyTo({
+        center: [longitude, latitude],
+        zoom: 15,
+        essential: true // this animation is considered essential with respect to prefers-reduced-motion
       });
-      return;
-    }
 
-    if (!location) {
-      toast({
-        title: "Location required",
-        description: "Please provide a location for the issue.",
-        variant: "destructive",
-      });
-      return;
+      new mapboxgl.Marker()
+        .setLngLat([longitude, latitude])
+        .addTo(map.current!);
     }
+  }, [defaultValues, mapLoaded]);
 
+  async function onSubmitHandler(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-
-      // In a real app, this would send the data to a server
-      addIssue({
-        title,
-        description,
-        category,
-        status: "open",
-        location,
-        photos,
-        reporterId: user.id,
-        reporterName: user.name,
-      });
-
-      // Reset form
-      setTitle("");
-      setDescription("");
-      setCategory("road_damage");
-      setPhotos([]);
-      setPhotoUrls([]);
-      setLocation(null);
-
-      // Navigate or callback
-      if (onSubmitSuccess) {
-        onSubmitSuccess();
-      } else {
-        navigate("/");
+      if (!user) {
+        throw new Error('User must be logged in to submit an issue.');
       }
-    } catch (error) {
+
+      const issueData = {
+        ...values,
+        reporterId: user.id,
+        reporterName: user.name || 'Anonymous',
+        location: {
+          ...values.location,
+          address: values.location.address || 'No address provided',
+        },
+      };
+
+      if (issueId) {
+        // Update existing issue
+        await updateIssue(issueId, issueData);
+        toast({
+          title: "Issue Updated",
+          description: "Your issue has been updated successfully.",
+        });
+      } else {
+        // Create new issue
+        await createIssue(issueData);
+        toast({
+          title: "Issue Reported",
+          description: "Your issue has been reported successfully.",
+        });
+      }
+
+      navigate('/');
+    } catch (error: any) {
+      console.error("Error submitting issue:", error);
       toast({
-        title: "Error",
-        description: "Failed to submit the issue. Please try again.",
         variant: "destructive",
+        title: "Error Reporting Issue",
+        description: error.message || "Failed to report the issue. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
-        <label
-          htmlFor="title"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Title
-        </label>
-        <Input
-          id="title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Brief title for the issue"
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="description"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Description
-        </label>
-        <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Provide details about the issue"
-          required
-          rows={4}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="category"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Category
-        </label>
-        <Select
-          value={category}
-          onValueChange={(value) => setCategory(value as IssueCategory)}
-        >
-          <SelectTrigger id="category">
-            <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="road_damage">Road Damage</SelectItem>
-            <SelectItem value="sanitation">Sanitation</SelectItem>
-            <SelectItem value="lighting">Lighting</SelectItem>
-            <SelectItem value="graffiti">Graffiti</SelectItem>
-            <SelectItem value="sidewalk">Sidewalk</SelectItem>
-            <SelectItem value="vegetation">Vegetation</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Location
-        </label>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={getCurrentLocation}
-            disabled={isGettingLocation}
-            className="flex-1"
-          >
-            <MapPin className="mr-2 h-4 w-4" />
-            {isGettingLocation
-              ? "Getting location..."
-              : location
-              ? "Update Location"
-              : "Get Current Location"}
-          </Button>
-        </div>
-        {location && (
-          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {location.address ? (
-              <p>{location.address}</p>
-            ) : (
-              <p>
-                Latitude: {location.latitude.toFixed(6)}, Longitude:{" "}
-                {location.longitude.toFixed(6)}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="photos"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Photos
-        </label>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {photoUrls.map((url, index) => (
-            <Card
-              key={index}
-              className="w-24 h-24 overflow-hidden relative flex items-center justify-center"
-            >
-              <img
-                src={url}
-                alt={`Photo preview ${index + 1}`}
-                className="h-full w-full object-cover"
-              />
-            </Card>
-          ))}
-          <label
-            htmlFor="photo-upload"
-            className="w-24 h-24 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-md cursor-pointer hover:border-primary transition-colors"
-          >
-            <Camera className="h-8 w-8 text-gray-400" />
-            <span className="mt-1 text-xs text-gray-500">Add Photo</span>
-            <input
-              id="photo-upload"
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="hidden"
-              multiple
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>{issueId ? "Edit Issue" : "Report an Issue"}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="A brief title for the issue" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </label>
-        </div>
-      </div>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Describe the issue in detail"
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="pothole">Pothole</SelectItem>
+                      <SelectItem value="damaged_sign">Damaged Sign</SelectItem>
+                      <SelectItem value="street_light_outage">Street Light Outage</SelectItem>
+                      <SelectItem value="graffiti">Graffiti</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      <Button
-        type="submit"
-        disabled={isSubmitting || !location}
-        className="w-full"
-      >
-        {isSubmitting ? "Submitting..." : "Submit Report"}
-      </Button>
-    </form>
+            {/* Location Section */}
+            <div>
+              <Label>Location</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="location.latitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Latitude"
+                          type="number"
+                          {...field}
+                          value={location?.latitude !== undefined ? location.latitude.toString() : ''}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            setLocation(prev => ({ ...prev, latitude: value }));
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="location.longitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Longitude"
+                          type="number"
+                          {...field}
+                          value={location?.longitude !== undefined ? location.longitude.toString() : ''}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            setLocation(prev => ({ ...prev, longitude: value }));
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Map Preview */}
+            <div className="w-full">
+              <Label>Select Location on Map</Label>
+              <div ref={mapContainer} className="h-64 rounded" />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="isPublic"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Public Report</FormLabel>
+                    <FormDescription>
+                      Do you want this report to be public?
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit"}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 };
 

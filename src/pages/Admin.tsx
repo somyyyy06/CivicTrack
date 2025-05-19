@@ -107,9 +107,20 @@ const Admin = () => {
               <TabsTrigger value="in_progress">In Progress</TabsTrigger>
               <TabsTrigger value="resolved">Resolved</TabsTrigger>
             </TabsList>
-            <AdminIssueTable />
-          </CardContent>
-        </Card>
+            <TabsContent value="all">
+              <AdminIssueTable />
+            </TabsContent>
+            <TabsContent value="open">
+              <AdminIssueTable />
+            </TabsContent>
+            <TabsContent value="in_progress">
+              <AdminIssueTable />
+            </TabsContent>
+            <TabsContent value="resolved">
+              <AdminIssueTable />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
       </Card>
     </div>
   );

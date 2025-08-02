@@ -1,0 +1,20 @@
+# CivicTrack Frontend Requirements
+# This file is for documentation and deployment reference only.
+# The actual dependencies are managed by package.json (npm/yarn).
+
+# Main tools
+node >=18.0.0
+npm >=9.0.0
+
+# Core dependencies (see package.json for exact versions)
+react
+react-dom
+react-router-dom
+vite
+tailwindcss
+@tanstack/react-query
+zod
+@hookform/resolvers
+mapbox-gl
+shadcn/ui
+lucide-react 

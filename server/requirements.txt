@@ -1,0 +1,10 @@
+# CivicTrack Backend Requirements
+# This file is for documentation and deployment reference only.
+# The actual dependencies are managed by package.json (npm/yarn).
+
+node >=18.0.0
+npm >=9.0.0
+express
+cors
+dotenv
+nodemon # dev only 

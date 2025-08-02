@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
-import { useToast } from "../hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const API_URL = "http://localhost:3000";
 

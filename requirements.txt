@@ -1,20 +1,41 @@
-# CivicTrack Frontend Requirements
-# This file is for documentation and deployment reference only.
-# The actual dependencies are managed by package.json (npm/yarn).
+# CivicTrack - Full Stack Community Issue Reporting Platform
+# This file provides an overview of the entire project requirements.
 
-# Main tools
+# Project Structure
+# ├── client/          # Frontend React application
+# ├── server/          # Backend Express API
+# └── README.md        # Project documentation
+
+# Runtime Requirements
 node >=18.0.0
 npm >=9.0.0
 
-# Core dependencies (see package.json for exact versions)
-react
-react-dom
-react-router-dom
-vite
-tailwindcss
-@tanstack/react-query
-zod
-@hookform/resolvers
-mapbox-gl
-shadcn/ui
-lucide-react 
+# Frontend Dependencies (see client/requirements.txt for details)
+react >=18.0.0
+react-dom >=18.0.0
+react-router-dom >=6.0.0
+vite >=4.0.0
+tailwindcss >=3.0.0
+mapbox-gl >=2.0.0
+
+# Backend Dependencies (see server/requirements.txt for details)
+express >=5.0.0
+cors >=2.8.5
+dotenv >=17.0.0
+uuid >=9.0.0
+
+# Development Tools
+typescript >=5.0.0
+eslint
+prettier
+nodemon >=3.0.0
+
+# API Integration
+# Frontend connects to backend at http://localhost:3000
+# All CRUD operations and authentication are handled via REST API
+
+# Quick Start Commands:
+# 1. cd server && npm install && npm run dev
+# 2. cd client && npm install && npm run dev
+# 3. Access frontend at http://localhost:5173
+# 4. API available at http://localhost:3000 

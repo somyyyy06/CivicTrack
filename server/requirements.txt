@@ -2,9 +2,25 @@
 # This file is for documentation and deployment reference only.
 # The actual dependencies are managed by package.json (npm/yarn).
 
+# Runtime Requirements
 node >=18.0.0
 npm >=9.0.0
-express
-cors
-dotenv
-nodemon # dev only 
+
+# Core Dependencies
+express >=5.0.0
+cors >=2.8.5
+dotenv >=17.0.0
+uuid >=9.0.0
+
+# Development Dependencies
+nodemon >=3.0.0
+
+# API Endpoints Available:
+# - GET /api/health - Health check
+# - POST /api/auth/login - User authentication
+# - POST /api/auth/signup - User registration
+# - GET /api/issues - Fetch all issues
+# - POST /api/issues - Create new issue
+# - GET /api/issues/:id - Get specific issue
+# - PUT /api/issues/:id - Update issue
+# - DELETE /api/issues/:id - Delete issue 

@@ -11,6 +11,7 @@ express >=5.0.0
 cors >=2.8.5
 dotenv >=17.0.0
 uuid >=9.0.0
+multer >=1.4.5
 
 # Development Dependencies
 nodemon >=3.0.0
@@ -19,6 +20,7 @@ nodemon >=3.0.0
 # - GET /api/health - Health check
 # - POST /api/auth/login - User authentication
 # - POST /api/auth/signup - User registration
+# - POST /api/upload - File upload (images only, max 5 files, 5MB each)
 # - GET /api/issues - Fetch all issues
 # - POST /api/issues - Create new issue
 # - GET /api/issues/:id - Get specific issue

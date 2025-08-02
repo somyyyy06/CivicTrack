@@ -46,3 +46,6 @@ nodemon >=3.0.0
 # 2. cd client && npm install && npm run dev
 # 3. Access frontend at http://localhost:5173
 # 4. API available at http://localhost:3000 
+
+MONGO_URI=mongodb://localhost:27017/civictrack
+PORT=3000 

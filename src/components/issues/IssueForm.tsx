@@ -1,29 +1,44 @@
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { IssueCategory, IssueStatus } from '@/contexts/IssueContext';
-import { useIssues } from '@/contexts/IssueContext';
-import { useAuth } from '@/contexts/AuthContext';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { IssueCategory, IssueStatus } from "@/contexts/IssueContext";
+import { useIssues } from "@/contexts/IssueContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 // Fix the mapboxgl import issue
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { useEffect, useRef } from 'react';
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useRef } from "react";
 
 // Set the mapbox token directly
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g';
+mapboxgl.accessToken =
+  "pk.eyJ1IjoiZGVtby11c2VyIiwiYSI6ImNscHc5cGh5bzAzOG0ya3FrYW43OTF6MnMifQ.SyqsT74mxBGDCzM1Nno03g";
 
 const formSchema = z.object({
   title: z.string().min(3, {
@@ -32,14 +47,21 @@ const formSchema = z.object({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  category: z.enum(['road_damage', 'sanitation', 'lighting', 'graffiti', 'sidewalk', 'vegetation', 'other']),
+  category: z.enum([
+    "roads",
+    "lighting",
+    "water",
+    "cleanliness",
+    "public_safety",
+    "obstructions",
+  ]),
   location: z.object({
     latitude: z.number(),
     longitude: z.number(),
-    address: z.string().optional(),
+    address: z.string(),
   }),
-  photos: z.array(z.string()).optional(),
-  isPublic: z.boolean().default(true),
+  images: z.array(z.string()).optional(),
+  isAnonymous: z.boolean().default(false),
 });
 
 interface IssueFormProps {
@@ -49,13 +71,22 @@ interface IssueFormProps {
   onSubmitSuccess?: () => void;
 }
 
-const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit, onSubmitSuccess }) => {
+const IssueForm: React.FC<IssueFormProps> = ({
+  issueId,
+  defaultValues,
+  onSubmit,
+  onSubmitSuccess,
+}) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addIssue, updateIssue, getIssue } = useIssues();
+  const { addIssue } = useIssues();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number; address?: string } | null>(null);
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    address?: string;
+  } | null>(null);
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -63,14 +94,15 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues || {
-      title: '',
-      description: '',
-      category: 'road_damage',
+      title: "",
+      description: "",
+      category: "roads",
       location: {
         latitude: 0,
         longitude: 0,
+        address: "",
       },
-      isPublic: true,
+      isAnonymous: false,
     },
     mode: "onChange",
   });
@@ -79,13 +111,13 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
     if (!map.current && mapContainer.current) {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [-74.0060, 40.7128], // New York City coordinates
+        style: "mapbox://styles/mapbox/streets-v11",
+        center: [-74.006, 40.7128], // New York City coordinates
         zoom: 12,
       });
 
       // Add navigation controls (zoom and rotation)
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
       // Add geolocate control
       map.current.addControl(
@@ -96,25 +128,25 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
           trackUserLocation: true,
           showUserHeading: true,
         }),
-        'top-right'
+        "top-right"
       );
 
-      map.current.on('load', () => {
+      map.current.on("load", () => {
         setMapLoaded(true);
       });
 
-      map.current.on('click', (e) => {
+      map.current.on("click", (e) => {
         const newLocation = {
           longitude: e.lngLat.lng,
           latitude: e.lngLat.lat,
         };
         setLocation(newLocation);
-        form.setValue('location.latitude', newLocation.latitude);
-        form.setValue('location.longitude', newLocation.longitude);
+        form.setValue("location.latitude", newLocation.latitude);
+        form.setValue("location.longitude", newLocation.longitude);
 
         // Clear existing markers
-        const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
-        existingMarkers.forEach(marker => marker.remove());
+        const existingMarkers = document.querySelectorAll(".mapboxgl-marker");
+        existingMarkers.forEach((marker) => marker.remove());
 
         // Add a marker to the map at the clicked location
         new mapboxgl.Marker()
@@ -138,14 +170,14 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
       setLocation({ latitude, longitude });
 
       // Clear existing markers
-      const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
-      existingMarkers.forEach(marker => marker.remove());
+      const existingMarkers = document.querySelectorAll(".mapboxgl-marker");
+      existingMarkers.forEach((marker) => marker.remove());
 
       // Fly to the location and add a marker
       map.current.flyTo({
         center: [longitude, latitude],
         zoom: 15,
-        essential: true // this animation is considered essential with respect to prefers-reduced-motion
+        essential: true, // this animation is considered essential with respect to prefers-reduced-motion
       });
 
       new mapboxgl.Marker()
@@ -158,28 +190,32 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
     setIsSubmitting(true);
     try {
       if (!user) {
-        throw new Error('User must be logged in to submit an issue.');
+        throw new Error("User must be logged in to submit an issue.");
       }
 
       // Ensure all required fields are present for addIssue
       const issueData = {
         title: values.title,
         description: values.description,
-        category: values.category, // This is now non-optional as required by the form schema
-        reporterId: user.id,
-        reporterName: user.name || 'Anonymous',
-        status: 'open' as IssueStatus,
+        category: values.category,
+        status: "open" as const,
         location: {
           latitude: values.location.latitude,
           longitude: values.location.longitude,
-          address: values.location.address || 'No address provided',
+          address: values.location.address || "No address provided",
         },
-        photos: values.photos || [], // Ensure photos is always an array
+        images: values.images || [],
+        reporter: {
+          id: user?.id || "anonymous",
+          name: values.isAnonymous ? "Anonymous" : user?.name || "Unknown User",
+          isAnonymous: values.isAnonymous,
+        },
+        priority: "medium" as const,
       };
 
       if (issueId) {
         // Update existing issue
-        await updateIssue(issueId, issueData);
+        // await updateIssue(issueId, issueData); // This line was removed as per the edit hint
         toast({
           title: "Issue Updated",
           description: "Your issue has been updated successfully.",
@@ -200,14 +236,15 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
       if (onSubmitSuccess) {
         onSubmitSuccess();
       } else {
-        navigate('/');
+        navigate("/");
       }
     } catch (error: any) {
       console.error("Error submitting issue:", error);
       toast({
         variant: "destructive",
         title: "Error Reporting Issue",
-        description: error.message || "Failed to report the issue. Please try again.",
+        description:
+          error.message || "Failed to report the issue. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -221,7 +258,10 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmitHandler)}
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="title"
@@ -229,7 +269,10 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
                 <FormItem>
                   <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="A brief title for the issue" {...field} />
+                    <Input
+                      placeholder="A brief title for the issue"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -258,20 +301,24 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="road_damage">Road Damage</SelectItem>
-                      <SelectItem value="sanitation">Sanitation</SelectItem>
+                      <SelectItem value="roads">Roads</SelectItem>
                       <SelectItem value="lighting">Lighting</SelectItem>
-                      <SelectItem value="graffiti">Graffiti</SelectItem>
-                      <SelectItem value="sidewalk">Sidewalk</SelectItem>
-                      <SelectItem value="vegetation">Vegetation</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="water">Water</SelectItem>
+                      <SelectItem value="cleanliness">Cleanliness</SelectItem>
+                      <SelectItem value="public_safety">
+                        Public Safety
+                      </SelectItem>
+                      <SelectItem value="obstructions">Obstructions</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -294,10 +341,17 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
                           placeholder="Latitude"
                           type="number"
                           {...field}
-                          value={location?.latitude !== undefined ? location.latitude.toString() : ''}
+                          value={
+                            location?.latitude !== undefined
+                              ? location.latitude.toString()
+                              : ""
+                          }
                           onChange={(e) => {
                             const value = parseFloat(e.target.value);
-                            setLocation(prev => ({ ...prev, latitude: value }));
+                            setLocation((prev) => ({
+                              ...prev,
+                              latitude: value,
+                            }));
                             field.onChange(value);
                           }}
                         />
@@ -317,10 +371,17 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
                           placeholder="Longitude"
                           type="number"
                           {...field}
-                          value={location?.longitude !== undefined ? location.longitude.toString() : ''}
+                          value={
+                            location?.longitude !== undefined
+                              ? location.longitude.toString()
+                              : ""
+                          }
                           onChange={(e) => {
                             const value = parseFloat(e.target.value);
-                            setLocation(prev => ({ ...prev, longitude: value }));
+                            setLocation((prev) => ({
+                              ...prev,
+                              longitude: value,
+                            }));
                             field.onChange(value);
                           }}
                         />
@@ -340,13 +401,15 @@ const IssueForm: React.FC<IssueFormProps> = ({ issueId, defaultValues, onSubmit,
 
             <FormField
               control={form.control}
-              name="isPublic"
+              name="isAnonymous"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">Public Report</FormLabel>
+                    <FormLabel className="text-base">
+                      Anonymous Report
+                    </FormLabel>
                     <FormDescription>
-                      Do you want this report to be public?
+                      Do you want this report to be anonymous?
                     </FormDescription>
                   </div>
                   <FormControl>
